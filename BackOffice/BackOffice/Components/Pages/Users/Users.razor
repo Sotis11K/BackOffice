@@ -1,0 +1,267 @@
+﻿
+
+
+@* @page "/users"
+@using BackOffice.Data
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Users</PageTitle>
+
+<h1>Users</h1>
+
+@if (users == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    var count = 1;
+
+    @foreach (var user in users)
+    {
+        <EditForm Model="@user" OnValidSubmit="@(() => UpdateUserInfo(user))" FormName="@($"form{count}")">
+            <DataAnnotationsValidator />
+                <InputText @bind-Value="Input.FirstName" class="form-control" autocomplete="givenname" aria-required="true" placeholder="@user.FirstName" />
+                <ValidationMessage For="() => Input.FirstName" />
+
+            <InputText @bind-Value="Input.LastName" class="form-control" autocomplete="surname" aria-required="true" placeholder="@user.LastName" />
+                <ValidationMessage For="() => Input.LastName" />
+
+            <InputText @bind-Value="Input.Email" type="email" class="form-control" autocomplete="email" aria-required="true" placeholder="@user.Email" />
+                <ValidationMessage For="() => Input.Email" />
+
+                <button type="submit">Update</button>
+        </EditForm>
+        count++;
+    }
+}
+
+@code {
+    private ApplicationUser[] users;
+    private string ErrorMessage { get; set; }
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        users = await Http.GetFromJsonAsync<ApplicationUser[]>("http://localhost:7024/api/GetUsers");
+    }
+
+    private async Task UpdateUserInfo(ApplicationUser userToUpdate)
+    {
+        var user = new ApplicationUser
+            {
+                FirstName = Input.FirstName,
+                LastName = Input.LastName,
+                Email = Input.Email,
+            };
+
+        if (await UserManager.Users.AnyAsync(x => x.Email == user.Email))
+        {
+            ErrorMessage = "Email already in use.";
+        }
+
+        var result = await UserManager.UpdateAsync(user);
+
+        if (!result.Succeeded)
+        {
+            return;
+        }
+
+    }
+
+    
+
+    private async Task DeleteUser(ApplicationUser user)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:7024/api/DeleteUser/{user.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                users = users.Where(u => u.Id != user.Id).ToArray();
+                Console.WriteLine("User deleted successfully");
+            }
+            else
+            {
+                ErrorMessage = $"Failed to delete user. Status code: {response.StatusCode}";
+                Console.WriteLine(ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Exception deleting user: {ex.Message}";
+            Console.WriteLine(ErrorMessage);
+        }
+    }
+
+
+
+
+
+
+
+
+    public class InputModel
+    {
+        [Required]
+        [Display(Name = "First name")]
+        public string FirstName { get; set; } = null!;
+
+        [Required]
+        [Display(Name = "Last name")]
+        public string LastName { get; set; } = null!;
+
+        [Required]
+        [EmailAddress]
+        [Display(Name = "Email")]
+        public string Email { get; set; } = null!;
+
+    }
+
+} *@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@page "/users"
+@using BackOffice.Data
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Users</PageTitle>
+
+<h1>Users</h1>
+
+@if (users == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    var count = 1;
+
+    @foreach (var user in users)
+    {
+        <EditForm Model="@user" OnValidSubmit="@(() => UpdateUserInfo(user))" FormName="@($"form{count}")">
+            <DataAnnotationsValidator />
+            <InputText @bind-Value="user.FirstName" class="form-control" autocomplete="givenname" aria-required="true" placeholder="@user.FirstName" />
+            <ValidationMessage For="() => user.FirstName" />
+
+            <InputText @bind-Value="user.LastName" class="form-control" autocomplete="surname" aria-required="true" placeholder="@user.LastName" />
+            <ValidationMessage For="() => user.LastName" />
+
+            <InputText @bind-Value="user.Email" type="email" class="form-control" autocomplete="email" aria-required="true" placeholder="@user.Email" />
+            <ValidationMessage For="() => user.Email" />
+
+            <button type="submit">Update</button>
+        </EditForm>
+        count++;
+    }
+}
+
+@code {
+    private ApplicationUser[] users;
+    private string ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        users = await Http.GetFromJsonAsync<ApplicationUser[]>("http://localhost:7024/api/GetUsers");
+    }
+
+    private async Task UpdateUserInfo(ApplicationUser userToUpdate)
+    {
+        var userInDb = await UserManager.FindByIdAsync(userToUpdate.Id);
+        if (userInDb == null)
+        {
+            ErrorMessage = "User not found.";
+            return;
+        }
+
+        userInDb.FirstName = userToUpdate.FirstName;
+        userInDb.LastName = userToUpdate.LastName;
+        userInDb.Email = userToUpdate.Email;
+
+        var emailExists = await UserManager.Users.AnyAsync(x => x.Email == userToUpdate.Email && x.Id != userToUpdate.Id);
+        if (emailExists)
+        {
+            ErrorMessage = "Email already in use.";
+            return;
+        }
+
+        var result = await UserManager.UpdateAsync(userInDb);
+
+        if (!result.Succeeded)
+        {
+            ErrorMessage = "Failed to update user.";
+            // Handle specific errors here if needed
+            return;
+        }
+    }
+
+    private async Task DeleteUser(ApplicationUser user)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"http://localhost:7024/api/DeleteUser/{user.Id}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                users = users.Where(u => u.Id != user.Id).ToArray();
+                Console.WriteLine("User deleted successfully");
+            }
+            else
+            {
+                ErrorMessage = $"Failed to delete user. Status code: {response.StatusCode}";
+                Console.WriteLine(ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Exception deleting user: {ex.Message}";
+            Console.WriteLine(ErrorMessage);
+        }
+    }
+}
